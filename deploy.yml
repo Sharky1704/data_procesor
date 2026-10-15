@@ -1,0 +1,6 @@
+---
+- name: Deploy data processor
+  hosts: ubuntu
+  become: true 
+  roles:
+    - dataproc

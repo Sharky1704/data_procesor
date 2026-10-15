@@ -1,0 +1,140 @@
+---
+#Checks if dataproc group and user exist with GID and UID 2048 respectively and creates them
+#if they don't exist.
+- name: Ensure dataproc group exists with GID 2048
+  ansible.builtin.group:
+    name: dataproc
+    gid: 2048
+    state: present
+
+- name: Ensure if dataproc user exists with UID 2048
+  ansible.builtin.user:
+    name: dataproc
+    uid: 2048
+    group: dataproc
+    create_home: false
+    shell: /usr/sbin/nologin
+    state: present
+
+#Checks if UFW is installed and configures it to only allow application data on port 8080, admin data on port 22
+#and outbound traffic.
+- name: Ensure UFW is installed
+  ansible.builtin.apt:
+    name: ufw
+    state: present
+    update_cache: true
+
+- name: Set incoming policy to deny
+  community.general.ufw:
+    direction: incoming
+    policy: deny
+
+- name: Set outgoing policy to allow
+  community.general.ufw:
+    direction: outgoing
+    policy: allow
+
+- name: Allow SSH
+  community.general.ufw:
+    rule: allow
+    port: "22"
+    proto: tcp
+
+- name: Allow application data on TCP 8080
+  community.general.ufw:
+    rule: allow
+    port: "8080"
+    proto: tcp
+
+- name: Enable UFW
+  community.general.ufw:
+    state: enabled  
+
+#Checks if docker and docker compose are installed and running
+- name: Ensure docker and docker compose are installed
+  ansible.builtin.apt:
+    name:
+      - docker.io
+      - docker-compose-v2
+    state: present
+    update_cache: true
+
+- name: Ensure docker is running
+  ansible.builtin.service:
+    name: docker
+    enabled: true
+    state: started
+
+#Creates the application directory on the server and deploys the application files
+- name: Create the application directory
+  ansible.builtin.file:
+    path: /opt/dataproc
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Deploy application files
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: "/opt/dataproc/{{ item }}"
+    owner: root
+    group: root
+    mode: '0644'
+  loop:
+    - Dockerfile
+    - entrypoint.sh
+    - app.py
+
+#Creates the Nginx log directory and the custom access log file before nginx container is ran to avoid any errors if they don't exist yet
+- name: Create nginx log directory
+  ansible.builtin.file:
+    path: /var/log/nginx
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Check if nginx access log exists
+  ansible.builtin.stat:
+    path: /var/log/nginx/custom-access.log
+  register: nginx_access_log
+
+- name: Create nginx access log file
+  ansible.builtin.file:
+    path: /var/log/nginx/custom-access.log
+    state: touch
+    owner: root
+    group: root
+    mode: '0644'
+  when: not nginx_access_log.stat.exists
+
+#Generates docker-compose.yml, nginx.conf and dataproc.service from their jinja2 templates
+- name: Generate deployment configuration files
+  ansible.builtin.template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    owner: root
+    group: root
+    mode: "{{ item.mode }}"
+  loop:
+    - src: docker-compose.yml
+      dest: /opt/dataproc/docker-compose.yml
+      mode: '0644'
+    - src: nginx.conf
+      dest: /opt/dataproc/nginx.conf
+      mode: '0644'
+    - src: dataproc.service
+      dest: /etc/systemd/system/dataproc.service
+      mode: '0644'
+
+#Reload systemd configuration and enable/start the dataproc service
+- name: Reload systemd configuration
+  ansible.builtin.systemd:
+    daemon_reload: true
+
+- name: Enable and start dataproc service
+  ansible.builtin.systemd:
+    name: dataproc
+    state: started
+    enabled: true

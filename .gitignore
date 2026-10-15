@@ -1,0 +1,6 @@
+.vagrant/
+.venv/
+venv/
+ansible-venv/
+__pycache__/
+*.pyc
