@@ -1,4 +1,4 @@
-# Dataproc Deployment
+# Data_procesor Deployment
 
 Automated deployment of a Python application behind Nginx using Ansible, Docker Compose, and systemd on Ubuntu Server 22.04
 
@@ -12,7 +12,7 @@ Automated deployment of a Python application behind Nginx using Ansible, Docker 
 
 1. Clone the repository if not yet done:
    ```
-   git clone --branch release-v1 <REPOSITORY_URL>
+   git clone --branch release-v1 https://github.com/Sharky1704/data_procesor
    cd data_procesor
    ```
 2. Start the virtual machine using the provided Vagrantfile:
@@ -35,6 +35,7 @@ Automated deployment of a Python application behind Nginx using Ansible, Docker 
    sudo systemctl status dataproc
    sudo docker compose -f /opt/dataproc/docker-compose.yml ps
    curl -i http://localhost:8080/
+   sudo tail -n 20 /var/log/nginx/custom-access.log
    ```
 ## Notes
 
